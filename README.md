@@ -1,3 +1,3 @@
-# Akins-Portfolio
+## Akins-Portfolio
 
-# Project One: USDA CAPSTONE PROJECT ON POSTGRESQL
+# Project One: USDA database to review the nutrition value of food items in the United States
