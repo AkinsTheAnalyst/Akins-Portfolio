@@ -1,0 +1,184 @@
+## Portfolio_Projects
+
+Here are the case questions that were analyzed with their respective SQL queries.
+
+---1. Write a query to return the food groups with average nutrition value of 
+---fat (tagname = FAT and/or nutrition description = Total Lipid (fat)) being more than 15g.
+
+SELECT fd_group.fdgrp_cd, fddrp_desc, tagname, nutrdesc, fddrp_desc, AVG(nutr_val) AS Avg_nutrval
+FROM fd_group
+INNER JOIN food_des 
+	ON food_des.fdgrp_cd = fd_group.fdgrp_cd
+INNER JOIN nut_data
+	ON nut_data.ndb_no = food_des.ndb_no
+INNER JOIN nutr_def
+	ON nutr_def.nutr_no = nut_data.nutr_no
+WHERE tagname = 'FAT' 
+GROUP BY fd_group.fdgrp_cd, fddrp_desc, tagname, nutrdesc, fddrp_desc
+HAVING AVG(nutr_val)>15;
+
+---2. Which food item manufacturer has the highest median nutrition value of 
+---sugar? Return the manufacturer’s name and the median nutrition value of sugar.
+
+SELECT manufacname,
+PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY nbnb) AS median
+FROM 
+(SELECT manufacname, nutr_val nbnb
+FROM food_des
+INNER JOIN nut_data
+	ON food_des.ndb_no = nut_data.ndb_no
+INNER JOIN nutr_def 
+	ON nutr_def.nutr_no = nut_data.nutr_no
+WHERE tagname = 'SUGAR') VVV
+GROUP BY manufacname
+ORDER BY median DESC
+LIMIT 5;
+
+---3. Which year was the most number of nutrition value of caffeine published?
+
+SELECT DISTINCT year, nutrdesc, nutr_val 
+FROM data_src
+INNER JOIN datsrcln
+	ON datsrcln.datasrc_id = data_src.datasrc_id
+INNER JOIN nut_data
+	ON nut_data.ndb_no = datsrcln.ndb_no
+INNER JOIN nutr_def
+	ON datsrcln.nutr_no = nutr_def.nutr_no
+WHERE nutrdesc = 'Caffeine' 
+GROUP BY year, nutrdesc, nutr_val
+ORDER BY nutr_val DESC
+LIMIT 5;
+
+---4. Find the nutrient(s) and food item(s) whose publications have the highest number of pages. 
+---Return the food description, nutrient description, author, title, year of publication, and number of pages.
+
+SELECT fdgrp_cd, fddrp_desc, nutrdesc, author, title, year, endpg, startpg, endpg - startpg AS no_of_pages
+FROM(
+	SELECT fdgrp_cd, fddrp_desc, nutrdesc, author, title, year, edpg, stpg, CAST(edpg AS int) AS endpg, CAST(stpg AS int) AS startpg
+	FROM(
+		SELECT fd_group.fdgrp_cd, fd_group.fddrp_desc, nutr_def.nutrdesc, data_src.authors AS author, data_src.title AS title,data_src.year AS year,
+		data_src.end_page AS edpg, data_src.start_page AS stpg
+		FROM data_src
+		INNER JOIN datsrcln
+		ON data_src.datasrc_id = datsrcln.datasrc_id
+		INNER JOIN nutr_def
+		ON nutr_def.nutr_no = datsrcln.nutr_no
+		INNER JOIN food_des
+		ON food_des.ndb_no = datsrcln.ndb_no
+		INNER JOIN fd_group 
+		ON food_des.fdgrp_cd = fd_group.fdgrp_cd
+		WHERE data_src.end_page ~ '^\s*[-+]?\d*\.?\d+([eE]\s*[-+]?\d+)?\s*$'
+			AND data_src.start_page  ~ '^\s*[-+]?\d*\.?\d+([eE]\s*[-+]?\d+)?\s*$'
+		ORDER BY fdgrp_cd, fddrp_desc, nutrdesc, author, title, year, edpg, stpg
+	)AS vvv
+)AS vvv
+GROUP BY fdgrp_cd, fddrp_desc, nutrdesc, author, title, year,  endpg, startpg, no_of_pages
+ORDER BY no_of_pages DESC;
+
+---5. Which type of data was mostly used in finding nutrition value? 
+---Return the data type and the number of times it was used.
+
+SELECT * FROM deriv_cd;
+
+SELECT deriv_cd, COUNT(*) AS no_of_times
+FROM deriv_cd
+GROUP BY deriv_cd
+HAVING COUNT(*) >= ALL
+			(SELECT COUNT(*)
+			FROM deriv_cd
+			GROUP BY deriv_cd
+			ORDER BY deriv_cd DESC
+);
+
+---6. Which nutrient has the highest total number of studies? Return 
+---the nutrient’s tagname, description and total number of studies
+
+SELECT * FROM nut_data;
+
+UPDATE nut_data
+SET num_studies = 0
+WHERE num_studies ISNULL;
+
+SELECT DISTINCT tagname, nutrdesc, SUM(num_studies) AS num_studies
+FROM nutr_def
+INNER JOIN nut_data
+	ON nutr_def.nutr_no = nut_data.nutr_no
+GROUP BY tagname, nutrdesc, num_studies
+ORDER BY num_studies DESC;
+
+---7. Find the top 10 food groups with the highest average 
+---protein factor?
+
+SELECT * FROM food_des;
+
+UPDATE food_des
+SET pro_factor = 0
+WHERE pro_factor ISNULL;
+
+SELECT DISTINCT fd_group.fdgrp_cd, AVG(pro_factor) AS pro_factor 
+FROM fd_group 
+INNER JOIN food_des
+	ON fd_group.fdgrp_cd = food_des.fdgrp_cd
+GROUP BY fd_group.fdgrp_cd, pro_factor 
+ORDER BY pro_factor DESC
+LIMIT 10;
+
+---8. Find the food item with the highest percentage of refuse. 
+---Return the food name, group, percentage of refuse and refuse description.
+
+SELECT * FROM food_des; 
+
+UPDATE food_des
+SET refuse = 0
+WHERE refuse ISNULL;
+
+SELECT fd_group.fddrp_desc,fd_group.fdgrp_cd, refuse, ref_desc
+FROM fd_group 
+INNER JOIN food_des
+	ON fd_group.fdgrp_cd = food_des.fdgrp_cd
+GROUP BY fd_group.fddrp_desc,fd_group.fdgrp_cd, refuse, ref_desc
+ORDER BY refuse DESC
+LIMIT 5;
+
+---9. Which data derivation method has the lowest average 
+---standard error greater than 0? Return the derivation method and its average standard error
+
+SELECT DISTINCT deriv_cd, AVG(std_error) AS avg_std_error
+FROM nut_data
+WHERE std_error > 0
+GROUP BY deriv_cd, std_error
+ORDER BY avg_std_error ASC
+LIMIT 5;
+
+---10. Which food group has the highest number of food items that do not have scientific names? 
+---Return the group name and number of food items without scientific name
+
+SELECT fddrp_desc, COUNT(*) AS no_of_times, sciname
+FROM fd_group 
+INNER JOIN food_des
+	ON fd_group.fdgrp_cd = food_des.fdgrp_cd
+WHERE sciname = ''
+GROUP BY fddrp_desc, sciname
+HAVING COUNT(*) >= ALL
+			(SELECT COUNT(*)
+			FROM fd_group
+			GROUP BY fddrp_desc
+			ORDER BY fddrp_desc
+)
+ORDER BY no_of_times DESC
+LIMIT 5;
+
+---11. Find the second top 10 food items with the highest gram per 
+---cup. Consider only food items which have cup as a measure.
+
+SELECT DISTINCT long_desc, msre_desc, gm_wgt
+FROM food_des
+INNER JOIN weight 
+	ON food_des.ndb_no = weight.ndb_no
+WHERE msre_desc = 'cup'
+GROUP BY long_desc, msre_desc, gm_wgt
+ORDER BY gm_wgt DESC
+OFFSET 10 ROWS FETCH FIRST 10 ROWS ONLY;
+
+
+
