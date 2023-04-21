@@ -1,7 +1,5 @@
 ## Portfolio_Projects
 
-Here are the case questions that were analyzed with their respective SQL queries.
-
 ---1. Write a query to return the food groups with average nutrition value of 
 ---fat (tagname = FAT and/or nutrition description = Total Lipid (fat)) being more than 15g.
 
